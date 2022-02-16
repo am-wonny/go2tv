@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/alexballas/go2tv/internal/devices"
-	"github.com/alexballas/go2tv/internal/gui"
 	"github.com/alexballas/go2tv/internal/httphandlers"
 	"github.com/alexballas/go2tv/internal/interactive"
 	"github.com/alexballas/go2tv/internal/soapcalls"
@@ -40,7 +39,6 @@ type flagResults struct {
 }
 
 func main() {
-	guiEnabled := true
 	var mediaFile interface{}
 	flag.Parse()
 
@@ -51,10 +49,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	if len(os.Args) > 1 {
-		guiEnabled = false
-	}
-
 	if *mediaArg != "" {
 		mediaFile = *mediaArg
 	}
@@ -62,11 +56,6 @@ func main() {
 	if *mediaArg == "" && *urlArg != "" {
 		mediaFile, err = urlstreamer.StreamURL(context.Background(), *urlArg)
 		check(err)
-	}
-
-	if guiEnabled {
-		scr := gui.InitFyneNewScreen(version)
-		gui.Start(scr)
 	}
 
 	var absMediaFile string
@@ -184,7 +173,10 @@ func processflags() (*flagResults, error) {
 		dmrURL: "",
 	}
 
-	if checkGUI() {
+	if checkNoFlags() {
+		_, _ = fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+		res.exit = true
 		return res, nil
 	}
 
@@ -283,6 +275,6 @@ func checkVerflag() {
 	}
 }
 
-func checkGUI() bool {
+func checkNoFlags() bool {
 	return *mediaArg == "" && !*listPtr && *urlArg == ""
 }
