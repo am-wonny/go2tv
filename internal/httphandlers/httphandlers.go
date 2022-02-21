@@ -38,6 +38,10 @@ func Close(scr Screen) {
 	scr.Fini()
 }
 
+func (s *HTTPserver) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+	s.mux.HandleFunc(pattern, handler)
+}
+
 // ServeFiles - Start HTTP server and serve the files.
 func (s *HTTPserver) ServeFiles(serverStarted chan<- struct{}, media, subtitles interface{},
 	tvpayload *soapcalls.TVPayload, screen Screen) error {
@@ -228,7 +232,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, tv *soapcalls.TVPayloa
 
 		// No seek support
 		if r.Method == http.MethodGet {
-			io.Copy(w, f)
+			buf := make([]byte, 1024)
+			io.CopyBuffer(w, f, buf)
 			f.Close()
 		} else {
 			w.WriteHeader(http.StatusOK)

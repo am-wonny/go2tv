@@ -32,6 +32,7 @@ var (
 type TVPayload struct {
 	MediaFile           interface{}
 	CurrentTimers       map[string]*time.Timer
+	DmrURL              string
 	ControlURL          string
 	SubtitlesURL        string
 	EventURL            string

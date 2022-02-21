@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/alexballas/go2tv/internal/devices"
 	"github.com/alexballas/go2tv/internal/httphandlers"
 	"github.com/alexballas/go2tv/internal/interactive"
+	"github.com/alexballas/go2tv/internal/live"
 	"github.com/alexballas/go2tv/internal/soapcalls"
 	"github.com/alexballas/go2tv/internal/urlstreamer"
 	"github.com/alexballas/go2tv/internal/utils"
@@ -31,6 +33,12 @@ var (
 	listPtr    = flag.Bool("l", false, "List all available UPnP/DLNA Media Renderer models and URLs.")
 	targetPtr  = flag.String("t", "", "Cast to a specific UPnP/DLNA Media Renderer URL.")
 	versionPtr = flag.Bool("version", false, "Print version.")
+	livePtr    = flag.Bool("live", false, "Live mode")
+	serverPtr  = flag.Bool("server", false, "Enable server for incoming ffmpeg stream")
+)
+
+const (
+	serverPath = "/ffmpeg/video.mp4"
 )
 
 type flagResults struct {
@@ -58,6 +66,37 @@ func main() {
 		check(err)
 	}
 
+	var receiveContent chan bool
+	var receiverHandler func(w http.ResponseWriter, r *http.Request)
+	if *serverPtr {
+		receiver, err := live.NewReceiverSimple()
+		mediaFile = receiver
+		*urlArg = "http://localhost/video.mp4"
+		check(err)
+
+		receiveContent = make(chan bool)
+		receiverHandler = func(w http.ResponseWriter, r *http.Request) {
+			receiveContent <- true
+			close(receiveContent)
+			for {
+				buf := make([]byte, 2*1024)
+				io.CopyBuffer(receiver, r.Body, buf)
+				i, err := r.Body.Read(buf)
+				if err != nil {
+					w.WriteHeader(500)
+					return
+				}
+				buf = buf[:i]
+				_, err = receiver.Write(buf)
+				if err != nil {
+					w.WriteHeader(500)
+					return
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+	}
+
 	var absMediaFile string
 	var mediaType string
 
@@ -69,6 +108,11 @@ func main() {
 
 		mediaType, err = utils.GetMimeDetailsFromFile(absMediaFile)
 		check(err)
+
+		if *livePtr {
+			mediaFile, err = live.NewLiveReader(absMediaFile)
+			check(err)
+		}
 	case io.ReadCloser:
 		absMediaFile = *urlArg
 	}
@@ -89,6 +133,7 @@ func main() {
 	check(err)
 
 	tvdata := &soapcalls.TVPayload{
+		DmrURL:              flagRes.dmrURL,
 		ControlURL:          upnpServicesURLs.AvtransportControlURL,
 		EventURL:            upnpServicesURLs.AvtransportEventSubURL,
 		RenderingControlURL: upnpServicesURLs.RenderingControlURL,
@@ -105,11 +150,18 @@ func main() {
 	// We pass the tvdata here as we need the callback handlers to be able to react
 	// to the different media renderer states.
 	go func() {
+		if receiverHandler != nil {
+			s.HandleFunc(serverPath, receiverHandler)
+		}
 		err := s.ServeFiles(serverStarted, mediaFile, absSubtitlesFile, tvdata, scr)
 		check(err)
 	}()
 	// Wait for HTTP server to properly initialize
 	<-serverStarted
+	if receiverHandler != nil {
+		fmt.Printf("Waiting ffmpeg stream on http://%s%s ...\n", whereToListen, serverPath)
+		<-receiveContent
+	}
 
 	scr.InterInit(tvdata)
 }
@@ -206,7 +258,7 @@ func processflags() (*flagResults, error) {
 }
 
 func checkVflag() error {
-	if !*listPtr && *urlArg == "" {
+	if !*listPtr && *urlArg == "" && !*serverPtr {
 		if _, err := os.Stat(*mediaArg); os.IsNotExist(err) {
 			return fmt.Errorf("checkVflags error: %w", err)
 		}
@@ -276,5 +328,5 @@ func checkVerflag() {
 }
 
 func checkNoFlags() bool {
-	return *mediaArg == "" && !*listPtr && *urlArg == ""
+	return *mediaArg == "" && !*listPtr && *urlArg == "" && !*serverPtr
 }

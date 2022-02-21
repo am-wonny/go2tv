@@ -132,6 +132,36 @@ func (p *NewScreen) InterInit(tv *soapcalls.TVPayload) {
 		os.Exit(1)
 	}
 
+	//go func() {
+	//	time.Sleep(10 * time.Second)
+	//	av, err := soapcalls.NewAVTransportClient(tv.DmrURL)
+	//	if err != nil {
+	//		_ = utils.WriteLog("NewAVTransportClient error: %v", err)
+	//		return
+	//	}
+	//	_ = av
+	//	Track, TrackDuration, TrackMetaData, TrackURI, RelTime, AbsTime, RelCount, AbsCount, err := av.GetPositionInfo(0)
+	//	if err != nil {
+	//		_ = utils.WriteLog("GetPositionInfo error: %v", err)
+	//		return
+	//	}
+	//	_ = utils.WriteLog("Track - %v, TrackDuration - %v, TrackMetaData - %v, TrackURI - %v, RelTime - %v, AbsTime - %v, RelCount - %v, AbsCount - %v", Track, TrackDuration, TrackMetaData, TrackURI, RelTime, AbsTime, RelCount, AbsCount)
+	//
+	//	time.Sleep(5 * time.Second)
+	//	err = av.Seek(0, "REL_TIME", "00:00:05")
+	//	if err != nil {
+	//		_ = utils.WriteLog("Seek error: %v", err)
+	//	}
+	//
+	//	time.Sleep(1 * time.Second)
+	//	Track, TrackDuration, TrackMetaData, TrackURI, RelTime, AbsTime, RelCount, AbsCount, err = av.GetPositionInfo(0)
+	//	if err != nil {
+	//		_ = utils.WriteLog("GetPositionInfo error: %v", err)
+	//		return
+	//	}
+	//	_ = utils.WriteLog("Track - %v, TrackDuration - %v, TrackMetaData - %v, TrackURI - %v, RelTime - %v, AbsTime - %v, RelCount - %v, AbsCount - %v", Track, TrackDuration, TrackMetaData, TrackURI, RelTime, AbsTime, RelCount, AbsCount)
+	//}()
+
 	for {
 		switch ev := s.PollEvent().(type) {
 		case *tcell.EventResize:
